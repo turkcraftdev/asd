@@ -1,90 +1,53 @@
+const express = require('express');
 const mineflayer = require('mineflayer');
-const readline = require('readline');
 
-// Sunucu Bilgileri
-const IP = 'TurkCraft1.aternos.me';
-const PORT = 57137;
+// 1. Render'ın kapanmaması için Web Sunucusu
+const app = express();
+const port = process.env.PORT || 3000;
 
-// 50 Adet Gerçek / NameMC Tarzı Minecraft Kullanıcı Adı
-const botNicks = [
-  'Aetherial', 'Vort3x', 'Kryptic', 'Shadowless', 'ZynxHD', 
-  'BlazeCraft', 'ViperX', 'Phant0m', 'NexusPvP', 'Kur0', 
-  'Soraa', 'Ryuuk', 'ZeroPvP', 'SpectreX', 'Hyperion', 
-  'RogueOne', 'Oblivi0n', 'Zenith', 'Ech0', 'Frosty', 
-  'Titanium', 'Astral', 'ApexPredator', 'PulseFX', 'Vanguard', 
-  'Eclipse', 'Sirenn', 'Voltt', 'Nyxian', 'OnyxPvP', 
-  'Solstice', 'CipherX', 'Havoc', 'LethalX', 'Venomous', 
-  'Rift', 'Zephyros', 'Drift3r', 'SlayerHD', 'Mirage', 
-  'Novah', 'Orionn', 'Krest', 'Talonn', 'Axell', 
-  'Jinxx', 'Kaisa', 'SaberX', 'Reaper', 'Frenzy'
-];
-
-const bots = {};
-
-// Terminalden (konsoldan) yazı yazabilmek için arayüz
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
+app.get('/', (req, res) => {
+  res.send('Turk_AFK Botu 7/24 Aktif!');
 });
 
-function createBotInstance(nick) {
-  console.log(`[+] ${nick} sunucuya baglanıyor...`);
+app.listen(port, () => {
+  console.log(`Web sunucusu ${port} portunda çalışıyor.`);
+});
 
-  const bot = mineflayer.createBot({
-    host: IP,
-    port: PORT,
-    username: nick,
-    version: false
-  });
+// 2. Aternos / Minecraft Sunucu Ayarları
+const serverOptions = {
+  host: 'SENIN_ATERNOS_IPN.aternos.me', // <-- BURAYA kendi Aternos IP'ni yaz (Örn: pikselpiksele.aternos.me)
+  port: 25565,                           // Portun farklıysa değiştir
+  username: 'Turk_AFK',                  // Botun kullanıcı adı
+  version: false                         // Otomatik sürüm algılama (Gerekirse '1.20.1' gibi elle yazabilirsin)
+};
 
+function createBot() {
+  console.log('Turk_AFK sunucuya bağlanıyor...');
+  const bot = mineflayer.createBot(serverOptions);
+
+  // Bot sunucuya girdiğinde
   bot.on('spawn', () => {
-    console.log(`[✓] ${nick} sunucuya başarıyla girdi!`);
+    console.log('Turk_AFK başarıyla sunucuya giriş yaptı!');
   });
 
+  // Chat mesajı gelince konsola yazdır (İsteğe bağlı)
   bot.on('chat', (username, message) => {
-    console.log(`[Sohbet - ${nick}] ${username}: ${message}`);
+    if (username === bot.username) return;
+    console.log(`<${username}> ${message}`);
   });
 
-  // Sunucudan atılma veya bağlantı kopma durumu
-  bot.on('end', () => {
-    console.log(`[-] ${nick} sunucudan ayrıldı/atıldı. 10 saniye sonra tekrar denenecek...`);
-    delete bots[nick];
-    
-    // Tekrar girerken 10 saniye bekler
-    setTimeout(() => {
-      bots[nick] = createBotInstance(nick);
-    }, 10000);
+  // Sunucudan düşerse veya kick yerse otomatik tekrar bağlan
+  bot.on('end', (reason) => {
+    console.log(`Bot sunucudan ayrıldı/düştü. Nedeni: ${reason}`);
+    console.log('15 saniye sonra tekrar bağlanılacak...');
+    setTimeout(createBot, 15000);
   });
 
+  // Hata alırsa konsola yaz ve çökmesini engelle
   bot.on('error', (err) => {
-    console.log(`[!] ${nick} Hata aldı:`, err.message);
+    console.log('Bir hata oluştu:', err);
   });
-
-  return bot;
 }
 
-// Botları 5'er saniye arayla sırayla oyuna sokma döngüsü
-console.log(`=== 50 Botlu NameMC Sistem Başlatılıyor (5 sn aralıkla) ===\n`);
-
-botNicks.forEach((nick, index) => {
-  setTimeout(() => {
-    bots[nick] = createBotInstance(nick);
-  }, index * 5000); // 5000 ms = 5 saniye
-});
-
-// Konsoldan yazılan komutu aktif olan tüm botlara aynı anda gönderir
-rl.on('line', (line) => {
-  if (line.trim() === '') return;
-
-  console.log(`[Konsol Komutu] ${Object.keys(bots).length} Bota Gönderiliyor: ${line}`);
-  
-  Object.values(bots).forEach((bot) => {
-    if (bot && bot.chat) {
-      try {
-        bot.chat(line);
-      } catch (err) {
-        // Bot henüz tam doğmadıysa hata vermesini engeller
-      }
-    }
-  });
-});
+// Botu Başlat
+createBot();
